@@ -1,5 +1,8 @@
 #include<stdio.h>
 #include<unistd.h>
+#include<stdlib.h>
+#include<sys/types.h>
+#include<sys/wait.h>
 #include "utils.h"
 
 #define MAX_PATHNAME_SIZE 1000
@@ -8,6 +11,8 @@ int exec_command(char**);
 void init(char**,char***);
 void pwd(void);
 void cd(char*);
+void exec_bins(char**);
+
 void main()
 {
     char *line;
@@ -37,11 +42,11 @@ void init(char **line,char ***tokens)
 int exec_command(char **tokens)
 {
     if(strcmp(tokens[0],"exit")==0)
-            return 0;
+        return 0;
     else if(strcmp(tokens[0],"pwd")==0)
     {
-            pwd();
-            return 1;
+        pwd();
+        return 1;
     }
     else if(strcmp(tokens[0],"cd")==0)
     {
@@ -50,12 +55,30 @@ int exec_command(char **tokens)
     }
     else
     {
-            printf("command not found\n");
-            return 1;
+        exec_bins(tokens);
+        return 1;
     
     }
 }
 
+void exec_bins(char **tokens)
+{
+    int wstatus;
+    int pid=fork();
+    if(pid==0)
+    {
+        if(execvp(tokens[0],tokens)==-1)
+        perror(tokens[0]);
+    }
+    else if(pid < 0)
+    {
+        fprintf(stderr,"Error occured while forking\n");
+    }
+    else
+    {
+        wait(&wstatus);
+    }
+}
 void pwd()
 {
     char *name=getcwd(NULL,MAX_PATHNAME_SIZE);
