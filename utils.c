@@ -3,7 +3,7 @@
 #include<stdlib.h>
 #include "utils.h"
 #define DELIM " "
-//TODO:increase buffer size if needed
+
 char **parseline(char *args,char **tokens)
 {
     int i=0;
@@ -12,6 +12,8 @@ char **parseline(char *args,char **tokens)
         return NULL;
     do
     {
+        if(i>=(sizeof(tokens)/sizeof(char*))-1)
+            tokens=realloc(tokens,sizeof(char*)*((sizeof(tokens)/sizeof(char*)+NUM_TOKENS)));
         tokens[++i]=strtok(NULL,DELIM);
     }while(tokens[i]!=NULL);
     tokens[i+1]==NULL;
