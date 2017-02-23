@@ -3,15 +3,26 @@
 #include<stdlib.h>
 #include<sys/types.h>
 #include<sys/wait.h>
+#include<sys/stat.h>
+#include<fcntl.h>
 #include "utils.h"
 
 #define MAX_PATHNAME_SIZE 1000
+
+struct filed
+{
+    int fd;
+    
+    int nfd;
+};
 
 int exec_command(char**);
 void init(char**,char***);
 void pwd(void);
 void cd(char*);
-void exec_bins(char**);
+void exec_bins(char**,struct filed *);
+struct filed *checkio(char**);
+
 
 void main()
 {
@@ -41,6 +52,7 @@ void init(char **line,char ***tokens)
 }
 int exec_command(char **tokens)
 {
+    struct filed *file_descriptor=checkio(tokens);
     if(strcmp(tokens[0],"exit")==0)
         return 0;
     else if(strcmp(tokens[0],"pwd")==0)
@@ -55,20 +67,27 @@ int exec_command(char **tokens)
     }
     else
     {
-        exec_bins(tokens);
+        exec_bins(tokens,file_descriptor);
         return 1;
     
     }
 }
 
-void exec_bins(char **tokens)
+void exec_bins(char **tokens,struct filed* file_descriptor)
 {
     int wstatus;
     int pid=fork();
     if(pid==0)
     {
+        if(file_descriptor!=NULL)
+        {
+            
+            dup2(file_descriptor->fd,file_descriptor->nfd);
+            close(file_descriptor->fd);
+        }
         if(execvp(tokens[0],tokens)==-1)
         perror(tokens[0]);
+        free(file_descriptor);
     }
     else if(pid < 0)
     {
@@ -91,4 +110,33 @@ void cd(char* path)
     status=chdir(path);
     if(status==-1)
         perror("cd");
+}
+
+struct filed *checkio(char **tokens)
+{
+    int i=0;
+    struct filed *cfd=malloc(sizeof(struct filed));
+    while(tokens[i]!=NULL)
+    {
+        if(strcmp(tokens[i],">")==0)
+        {
+            cfd->fd=open(tokens[i+1],O_CREAT|O_TRUNC|O_WRONLY,0644);
+            if(cfd->fd<0)
+                perror("open");
+            cfd->nfd=STDOUT_FILENO;
+            tokens[i]=NULL;
+            return cfd;
+        }
+        if(strcmp(tokens[i],"<")==0)
+        {
+            cfd->fd=open(tokens[i+1],O_RDONLY,0644);
+            if(cfd->fd<0)
+                perror("open");
+            cfd->nfd=STDIN_FILENO;
+            tokens[i]=NULL;
+            return cfd;
+        }
+        i++;
+    }
+    return NULL;
 }
