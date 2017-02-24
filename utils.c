@@ -2,6 +2,7 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include "utils.h"
+#include<signal.h>
 #define DELIM " "
 
 char **parseline(char *args,char **tokens)
@@ -26,4 +27,15 @@ char *readline(char *line)
     fgets(line,BUFFER_SIZE,stdin);
     line[strcspn(line,"\n")]='\0';
     return line;
+}
+
+void change_all_signals(sighandler_t handler)
+{
+    signal(SIGINT,handler);
+    signal(SIGQUIT,handler);
+    signal(SIGTSTP,handler);
+    signal(SIGINT,handler);
+    signal(SIGTTIN,handler);
+    signal(SIGTTOU,handler);
+    signal(SIGCHLD,handler);
 }

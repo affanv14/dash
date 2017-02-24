@@ -5,6 +5,7 @@
 #include<sys/wait.h>
 #include<sys/stat.h>
 #include<fcntl.h>
+#include<termios.h>
 #include "utils.h"
 
 #define MAX_PATHNAME_SIZE 1000
@@ -23,6 +24,10 @@ void cd(char*);
 void exec_bins(char**,struct filed *);
 struct filed *checkio(char**);
 
+pid_t shell_pgid;
+struct termios shell_tmodes;
+int shell_terminal;
+int shell_is_interactive;
 
 void main()
 {
@@ -46,7 +51,24 @@ void main()
 
 void init(char **line,char ***tokens)
 {
+    shell_terminal=STDIN_FILENO;
+    shell_is_interactive=isatty(shell_terminal);
+    if(shell_is_interactive)
+    {
+        while(tcgetpgrp(shell_terminal)!=(shell_pgid =getpgrp()))
+            kill(-shell_pgid,SIGTTIN);
 
+        change_all_signals(SIG_IGN);
+        shell_pgid=getpid();
+    
+        if(setpgid(shell_pgid,shell_pgid)<0)
+        {
+            perror("Could no put shell in its process group\n");
+            exit(0);
+        }
+        tcsetpgrp(shell_terminal,shell_pgid);
+        tcgetattr(shell_terminal,&shell_tmodes);
+    }
     *line=(char*)malloc(sizeof(char)*BUFFER_SIZE);
     *tokens=(char **)malloc(sizeof(char*)*NUM_TOKENS);
 }
