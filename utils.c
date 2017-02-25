@@ -34,7 +34,7 @@ void change_all_signals(sighandler_t handler)
     signal(SIGINT,handler);
     signal(SIGQUIT,handler);
     signal(SIGTSTP,handler);
-    signal(SIGINT,handler);
+    signal(SIGSTOP,handler);
     signal(SIGTTIN,handler);
     signal(SIGTTOU,handler);
     signal(SIGCHLD,handler);

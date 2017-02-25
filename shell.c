@@ -9,7 +9,7 @@
 #include "utils.h"
 
 #define MAX_PATHNAME_SIZE 1000
-
+#define MAX_PROCESSES 10000
 struct filed
 {
     int fd;
@@ -23,11 +23,19 @@ void pwd(void);
 void cd(char*);
 void exec_bins(char**,struct filed *);
 struct filed *checkio(char**);
+int push(pid_t);
+pid_t pop(void);
+void save_process(int);
+void restart_process(void);
+void kill_all_processes(void);
+void wait_and_continue(pid_t);
 
 pid_t shell_pgid;
 struct termios shell_tmodes;
 int shell_terminal;
 int shell_is_interactive;
+int pstack[MAX_PROCESSES];
+int stackptr;
 
 void main()
 {
@@ -69,6 +77,7 @@ void init(char **line,char ***tokens)
         tcsetpgrp(shell_terminal,shell_pgid);
         tcgetattr(shell_terminal,&shell_tmodes);
     }
+    stackptr=-1;
     *line=(char*)malloc(sizeof(char)*BUFFER_SIZE);
     *tokens=(char **)malloc(sizeof(char*)*NUM_TOKENS);
 }
@@ -76,10 +85,17 @@ int exec_command(char **tokens)
 {
     struct filed *file_descriptor=checkio(tokens);
     if(strcmp(tokens[0],"exit")==0)
+    {
         return 0;
+    }
     else if(strcmp(tokens[0],"pwd")==0)
     {
         pwd();
+        return 1;
+    }
+    else if(strcmp(tokens[0],"fg")==0)
+    {
+        restart_process();
         return 1;
     }
     else if(strcmp(tokens[0],"cd")==0)
@@ -97,10 +113,11 @@ int exec_command(char **tokens)
 
 void exec_bins(char **tokens,struct filed* file_descriptor)
 {
-    int wstatus;
     int pid=fork();
     if(pid==0)
     {
+        change_all_signals(SIG_DFL);
+        setpgid(0,0);
         if(file_descriptor!=NULL)
         {
             
@@ -108,8 +125,7 @@ void exec_bins(char **tokens,struct filed* file_descriptor)
             close(file_descriptor->fd);
         }
         if(execvp(tokens[0],tokens)==-1)
-        perror(tokens[0]);
-        free(file_descriptor);
+            perror(tokens[0]);
     }
     else if(pid < 0)
     {
@@ -117,7 +133,10 @@ void exec_bins(char **tokens,struct filed* file_descriptor)
     }
     else
     {
-        wait(&wstatus);
+        setpgid(pid,pid);
+        wait_and_continue(pid);
+        if(file_descriptor!=NULL)
+            free(file_descriptor);
     }
 }
 void pwd()
@@ -161,4 +180,55 @@ struct filed *checkio(char **tokens)
         i++;
     }
     return NULL;
+}
+
+int push(pid_t pid)
+{
+    if(stackptr>=MAX_PROCESSES-1)
+        return -1;
+    pstack[++stackptr]=pid;
+    return 0;
+}
+
+pid_t pop()
+{
+    if(stackptr<0)
+        return -1;
+    else
+        return pstack[stackptr--];
+}
+
+void save_process(int x)
+{
+    push(x);
+}
+
+void restart_process()
+{
+    pid_t pid=pop();
+    if(pid<0)
+        fprintf(stderr,"No stopped processes\n");
+    kill(pid,SIGCONT);
+    wait_and_continue(pid);
+}
+
+void kill_all_processes()
+{
+    pid_t pid=pop();
+    while(pid>=0)
+    {
+        kill(pid,SIGQUIT);
+    }
+}
+
+void wait_and_continue(pid_t pid)
+{
+    int wstatus;
+    tcsetpgrp(shell_terminal,pid);
+    waitpid(pid,&wstatus,WUNTRACED);
+    if(WIFSTOPPED(wstatus))
+    {
+        save_process(pid);
+    }
+    tcsetpgrp(shell_terminal,getpid());
 }
