@@ -6,6 +6,6 @@
 
 typedef void (*sighandler_t)(int);
 
-char **parseline(char*,char**);
-char *readline(char*);
+void parseline(char*,char**);
+void readline(char*);
 void change_all_signals(sighandler_t);

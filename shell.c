@@ -46,10 +46,13 @@ void main()
     while(status)
     {
         printf("shell:");
-        line=readline(line);
-        tokens=parseline(line,tokens);
-        if(tokens==NULL)
+        readline(line);
+        parseline(line,tokens);
+        if(tokens[0]==NULL)
+        {
+            status=1;
             continue;
+        }
         status=exec_command(tokens);
     }
     free(tokens);
